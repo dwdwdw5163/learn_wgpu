@@ -110,8 +110,6 @@ struct State {
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
 
-    depth_pass: DepthPass,
-
 }
 
 impl State {
@@ -375,9 +373,6 @@ impl State {
         let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
         let instance_buffer = instance::create_instances_buffer(&device, &instance_data);
 
-        let depth_pass = DepthPass::new(&device, &config);
-        
-        
         Self {
             window,
             surface,
@@ -407,8 +402,6 @@ impl State {
 
             instances,
             instance_buffer,
-
-            depth_pass,
         }
 
     }
@@ -423,9 +416,7 @@ impl State {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-//            self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
-            self.depth_pass.resize(&self.device, &self.config);
-
+            self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
             
         }
     }
@@ -480,7 +471,7 @@ impl State {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_pass.texture.view,
+                view: &self.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -504,8 +495,6 @@ impl State {
         render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
 
         drop(render_pass);
-
-        self.depth_pass.render(&view, &mut encoder);
 
 
         // submit will accept anything that implements IntoIter
