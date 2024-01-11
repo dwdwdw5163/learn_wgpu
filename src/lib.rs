@@ -505,6 +505,16 @@ pub async fn run() {
     // run()
     event_loop.run(move |event, elwh| {
         match event {
+            Event::AboutToWait => {
+                // Application update code.
+
+                // Queue a RedrawRequested event.
+                //
+                // You only need to call this if you've determined that you need to redraw in
+                // applications which do not always need to. Applications that redraw continuously
+                // can render here instead.
+                state.window.request_redraw();
+            },
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion{ delta, },
                 .. // We're not using device_id currently
