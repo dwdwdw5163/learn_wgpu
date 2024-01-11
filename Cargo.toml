@@ -14,8 +14,11 @@ bytemuck = { version = "1.14.0", features = ["derive"] }
 cgmath = "0.18.0"
 futures = "0.3.30"
 image = { version = "0.24.7", features = ["png", "jpeg"] }
+instant = "0.1.12"
+lazy_static = "1.4.0"
 pollster = "0.3.0"
 rand = "0.8.5"
+tobj = { version = "4.0.0", features = ["async", "log"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 wgpu = "0.18.0"

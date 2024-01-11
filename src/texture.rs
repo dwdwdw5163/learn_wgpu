@@ -1,9 +1,11 @@
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
+use std::result::Result::Ok;
 
 use image::GenericImageView;
 use anyhow::*;
+use tracing::warn;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -18,12 +20,15 @@ impl Texture {
         queue: &wgpu::Queue,
         label: Option<&str>
     ) -> Result<Self> {
-        let mut f = File::open(path).unwrap();
+        let f = File::open(path)?;
+        let mut reader = std::io::BufReader::new(f);
         let mut buffer = Vec::new();
         // read the whole file
-        f.read_to_end(&mut buffer).unwrap();
+        reader.read_to_end(&mut buffer)?;
         let img = image::load_from_memory(&buffer)?;
         Self::from_image(device, queue, &img, label)
+            
+            
     }
     
     pub fn from_bytes(
