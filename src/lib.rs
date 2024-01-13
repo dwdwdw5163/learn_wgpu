@@ -3,7 +3,6 @@ use cgmath::{SquareMatrix, Rotation3, Zero, Angle};
 use light::LightUniform;
 use texture::Texture;
 use tracing::info;
-use transform::{Transform, TransformUniform};
 use winit::{
     event::{Event, WindowEvent, KeyEvent, ElementState, MouseButton, DeviceEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -13,9 +12,7 @@ use wgpu::util::DeviceExt;
 
 mod texture;
 mod camera;
-mod transform;
 mod instance;
-mod depth_pass;
 mod model;
 mod light;
 // lib.rs

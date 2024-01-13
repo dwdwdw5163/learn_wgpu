@@ -6,6 +6,7 @@ use std::result::Result::Ok;
 use image::GenericImageView;
 use anyhow::*;
 use tracing::warn;
+use wgpu::util::DeviceExt;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -56,6 +57,23 @@ impl Texture {
             height: dimensions.1,
             depth_or_array_layers: 1,
         };
+
+        // let texture = device.create_texture_with_data(
+        //     queue,
+        //      &wgpu::TextureDescriptor {
+        //         label,
+        //         size,
+        //         mip_level_count: 1,
+        //         sample_count: 1,
+        //         dimension: wgpu::TextureDimension::D2,
+        //         format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        //         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        //         view_formats: &[],
+        //     },
+        //     &rgba,
+        // );
+
+        
         let texture = device.create_texture(
             &wgpu::TextureDescriptor {
                 label,

@@ -48,8 +48,3 @@ pub struct LightUniform {
     pub color: [f32; 4],
 }
 
-
-impl LightUniform {
-
-
-}
