@@ -1,5 +1,6 @@
 use bytemuck::bytes_of;
 use cgmath::{SquareMatrix, Rotation3, Zero, Angle};
+use depth_pass::DepthPass;
 use light::LightUniform;
 use texture::Texture;
 use tracing::info;
@@ -15,6 +16,8 @@ mod camera;
 mod instance;
 mod model;
 mod light;
+mod depth_pass;
+mod compute_shadow;
 // lib.rs
 use winit::window::Window;
 
@@ -94,8 +97,6 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
     obj_model: model::Model,
 
-
-    texture_bind_group_layout: wgpu::BindGroupLayout,
     depth_texture: Texture,
     
 
@@ -119,6 +120,7 @@ struct State {
     instance_buffer: wgpu::Buffer,
 
     
+    depth_pass: DepthPass,
 
 }
 
@@ -185,35 +187,13 @@ impl State {
         surface.configure(&device, &config);
         
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
+        let texture_bind_group_layout = texture::create_texture_bind_group_layout(&device);
+        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+        
 
         info!("Load model");
         let obj_model = model::load_obj("/Users/zhang/Downloads/GF2_Cheeta/CheetaDefault.obj", &device, &queue, &texture_bind_group_layout).unwrap();
 
-        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
 
         let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
@@ -224,35 +204,8 @@ impl State {
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera, &projection); // UPDATED!
-        let camera_buffer = camera_uniform.create_camera_buffer(&device);
-
-
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }
-            ],
-            label: Some("camera_bind_group_layout"),
-        });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }
-            ],
-            label: Some("camera_bind_group"),
-        });
+        let (camera_buffer, camera_bind_group_layout, camera_bind_group) = camera_uniform.create_camera_buffer_bind_group(&device);
+        
 
         let light_uniform = light::LightUniform {
             position: [2.0, 2.0, 2.0, 1.0],
@@ -322,6 +275,8 @@ impl State {
         };
 
 
+        let depth_pass = DepthPass::new(&device, &config);
+        
         Self {
             window,
             surface,
@@ -334,7 +289,6 @@ impl State {
 
             obj_model,
             
-            texture_bind_group_layout,
             depth_texture,
             
             camera,
@@ -354,6 +308,8 @@ impl State {
 
             instances,
             instance_buffer,
+
+            depth_pass,
         }
 
     }
@@ -370,7 +326,7 @@ impl State {
             self.surface.configure(&self.device, &self.config);
             self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
             self.projection.resize(new_size.width, new_size.height);
-
+            self.depth_pass.resize(&self.device, &self.config);
             
         }
     }
@@ -442,7 +398,8 @@ impl State {
                 },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
+                //                view: &self.depth_texture.view,
+                view: &self.depth_pass.texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -474,7 +431,7 @@ impl State {
         );
 
         drop(render_pass);
-
+        self.depth_pass.render(&view, &mut encoder);
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
